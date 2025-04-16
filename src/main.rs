@@ -1,11 +1,11 @@
 mod lib;
-use lib::{MultiAssetProofInput, prove_reserves_multi_asset};
-use std::env;
+use lib::{prove_reserves_multi_asset, MultiAssetProofInput};
 use nexus_sdk::{
     compile::{cargo::CargoPackager, Compile, Compiler},
     stwo::seq::Stwo,
     ByGuestCompilation, Local, Prover, Verifiable, Viewable,
 };
+use std::env;
 
 const PACKAGE: &str = "guest";
 
@@ -35,7 +35,7 @@ fn main() {
     let prover: Stwo<Local> =
         Stwo::compile(&mut prover_compiler).expect("failed to compile guest program");
 
-    let elf = prover.elf.clone(); // save elf for use with test verification
+    let elf = prover.elf.clone();
 
     print!("Proving proof-of-reserves... ");
     let (view, proof) = prover
@@ -49,7 +49,6 @@ fn main() {
         println!("  [{}] {}", i, line);
     }
 
-    // Updated log parser: handle PROOF_RESULT on same line or next line
     let mut proof_result: Option<u8> = None;
     for (i, log) in logs.iter().enumerate() {
         if let Some(idx) = log.find("PROOF_RESULT:") {
@@ -69,12 +68,12 @@ fn main() {
     }
     let proof_result = proof_result.expect("PROOF_RESULT not found in guest logs");
     println!("Guest proof result: {}", proof_result);
-    println!(
-        ">>>>> Logging\n{}<<<<<",
-        logs.join("")
-    );
+    println!(">>>>> Logging\n{}<<<<<", logs.join(""));
     if exit_code != 0 {
-        eprintln!("Guest exited with error code {} - proof execution failed.", exit_code);
+        eprintln!(
+            "Guest exited with error code {} - proof execution failed.",
+            exit_code
+        );
         std::process::exit(exit_code as i32);
     }
     if proof_result == 1 {
@@ -82,23 +81,22 @@ fn main() {
     } else {
         println!("Proof of reserves FAILED: reserves do NOT meet threshold");
         println!("Details:");
-        println!("  BTC balances: {:?}, threshold: {}", input.btc_balances, input.threshold_btc);
-        println!("  ETH balances: {:?}, threshold: {}", input.eth_balances, input.threshold_eth);
+        println!(
+            "  BTC balances: {:?}, threshold: {}",
+            input.btc_balances, input.threshold_btc
+        );
+        println!(
+            "  ETH balances: {:?}, threshold: {}",
+            input.eth_balances, input.threshold_eth
+        );
         println!("  Total BTC: {}", input.btc_balances.iter().sum::<u64>());
         println!("  Total ETH: {}", input.eth_balances.iter().sum::<u64>());
-        // Do not panic; exit with code 2 for failed proof
         std::process::exit(2);
     }
 
     print!("Verifying proof...");
     let expected_output = 1u8;
-    let verify_result = proof.verify_expected::<(), u8>(
-        &(),
-        0,
-        &expected_output,
-        &elf,
-        &[],
-    );
+    let verify_result = proof.verify_expected::<(), u8>(&(), 0, &expected_output, &elf, &[]);
     match verify_result {
         Ok(_) => println!("  Succeeded!"),
         Err(e) => {
