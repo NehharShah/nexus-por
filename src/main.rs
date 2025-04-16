@@ -11,20 +11,24 @@ const PACKAGE: &str = "guest";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 5 {
-        eprintln!("Usage: {} <btc_balances_comma_separated> <eth_balances_comma_separated> <btc_threshold> <eth_threshold>", args[0]);
+    if args.len() != 7 {
+        eprintln!("Usage: {} <btc_balances_comma_separated> <eth_balances_comma_separated> <btc_threshold> <eth_threshold> <bank_name> <reserve_operator>", args[0]);
         std::process::exit(1);
     }
     let btc_balances: Vec<u64> = args[1].split(',').filter_map(|s| s.parse().ok()).collect();
     let eth_balances: Vec<u64> = args[2].split(',').filter_map(|s| s.parse().ok()).collect();
     let threshold_btc: u64 = args[3].parse().expect("Invalid BTC threshold");
     let threshold_eth: u64 = args[4].parse().expect("Invalid ETH threshold");
-    let input = MultiAssetProofInput {
+    let bank_name = args[5].clone();
+    let reserve_operator = args[6].clone();
+    let input = MultiAssetProofInput::new(
         btc_balances,
         eth_balances,
         threshold_btc,
         threshold_eth,
-    };
+        bank_name,
+        reserve_operator,
+    );
 
     println!("Compiling guest program...");
     let mut prover_compiler = Compiler::<CargoPackager>::new(PACKAGE);

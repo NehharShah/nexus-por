@@ -1,5 +1,6 @@
 extern crate alloc;
 use alloc::vec::Vec;
+use alloc::string::String;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
@@ -8,5 +9,7 @@ pub struct MultiAssetProofInput {
     pub eth_balances: Vec<u64>,
     pub threshold_btc: u64,
     pub threshold_eth: u64,
+    pub bank_name: String,    
+    pub reserve_operator: String,    
     // Add more assets as needed
 }

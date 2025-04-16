@@ -7,6 +7,13 @@ use input::MultiAssetProofInput;
 #[nexus_rt::main]
 fn main(input: MultiAssetProofInput) -> u8 {
     println!("GUEST: Starting proof-of-reserves");
+    println!("GUEST: Bank name: {}", input.bank_name);
+    println!("GUEST: Reserve operator: {}", input.reserve_operator);
+    if input.reserve_operator != input.bank_name {
+        println!("GUEST: Reserve operator does NOT match bank. Reserves are NOT verified.");
+        println!("PROOF_RESULT: 0");
+        return 0;
+    }
     println!("GUEST: BTC balances: {:?}", input.btc_balances);
     println!("GUEST: ETH balances: {:?}", input.eth_balances);
     println!("GUEST: BTC threshold: {}", input.threshold_btc);
