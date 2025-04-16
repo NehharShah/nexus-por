@@ -24,6 +24,20 @@ fn main(input: MultiAssetProofInput) -> u8 {
     println!("Total ETH reserves: {}", sum_eth);
     let btc_ok = sum_btc >= input.threshold_btc;
     let eth_ok = sum_eth >= input.threshold_eth;
+
+    if let Some(liabilities) = &input.liabilities {
+        let total_liabilities: u64 = liabilities.iter().sum();
+        let total_assets = sum_btc + sum_eth;
+        println!("Total liabilities: {}", total_liabilities);
+        println!("Total assets: {}", total_assets);
+        if total_assets >= total_liabilities {
+            println!("PROOF_SOLVENCY: 1");
+            return 1;
+        } else {
+            println!("PROOF_SOLVENCY: 0");
+            return 0;
+        }
+    }
     let result = if btc_ok && eth_ok { 1 } else { 0 };
     println!("PROOF_RESULT: {}", result);
     result
