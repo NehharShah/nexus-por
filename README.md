@@ -1,6 +1,6 @@
 # Nexus zkVM Proof of Reserves
 
-A minimal, extensible Proof of Reserves (PoR) system using the [Nexus zkVM SDK](https://github.com/nexus-xyz/nexus-zkvm). Designed for exchanges, custodians, and financial institutions to transparently prove they have sufficient reserves to cover user assets.
+A POC on Proof of Reserves system using the [Nexus zkVM SDK](https://github.com/nexus-xyz/nexus-zkvm). 
 
 ---
 
