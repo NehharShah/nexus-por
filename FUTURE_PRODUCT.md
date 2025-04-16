@@ -42,11 +42,3 @@
 ![Product Architecture](assets/architecture.png)
 
 ---
-
-## 7. Next Steps
-- Prototype a web dashboard with live proof submission
-- Add REST API endpoints for integration
-- Benchmark proof generation time and optimize
-- Plan for compliance and audit requirements
-
----
