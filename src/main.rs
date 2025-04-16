@@ -1,24 +1,34 @@
+mod lib;
+use lib::{MultiAssetProofInput, prove_reserves_multi_asset};
+use std::env;
 use nexus_sdk::{
     compile::{cargo::CargoPackager, Compile, Compiler},
     stwo::seq::Stwo,
     ByGuestCompilation, Local, Prover, Verifiable, Viewable,
 };
-use lib::{ProofInput, prove_reserves};
-use std::env;
-use bincode;
-
-mod lib;
 
 const PACKAGE: &str = "guest";
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 3 {
-        eprintln!("Usage: {} <balances_comma_separated> <threshold>", args[0]);
+    if args.len() != 7 {
+        eprintln!("Usage: {} <btc_balances_comma_separated> <eth_balances_comma_separated> <btc_threshold> <eth_threshold> <bank_name> <reserve_operator>", args[0]);
         std::process::exit(1);
     }
-    let balances: Vec<u64> = args[1].split(',').filter_map(|s| s.parse().ok()).collect();
-    let threshold: u64 = args[2].parse().expect("Invalid threshold");
+    let btc_balances: Vec<u64> = args[1].split(',').filter_map(|s| s.parse().ok()).collect();
+    let eth_balances: Vec<u64> = args[2].split(',').filter_map(|s| s.parse().ok()).collect();
+    let threshold_btc: u64 = args[3].parse().expect("Invalid BTC threshold");
+    let threshold_eth: u64 = args[4].parse().expect("Invalid ETH threshold");
+    let bank_name = args[5].clone();
+    let reserve_operator = args[6].clone();
+    let input = MultiAssetProofInput::new(
+        btc_balances,
+        eth_balances,
+        threshold_btc,
+        threshold_eth,
+        bank_name,
+        reserve_operator,
+    );
 
     println!("Compiling guest program...");
     let mut prover_compiler = Compiler::<CargoPackager>::new(PACKAGE);
@@ -27,17 +37,13 @@ fn main() {
 
     let elf = prover.elf.clone(); // save elf for use with test verification
 
-    let input = ProofInput::new(balances, threshold);
-    let _input_bytes = bincode::serialize(&input).expect("failed to serialize input");
-
     print!("Proving proof-of-reserves... ");
     let (view, proof) = prover
-        .prove_with_input::<ProofInput, ()>(&input, &())
+        .prove_with_input::<MultiAssetProofInput, ()>(&input, &())
         .expect("failed to prove");
 
     let exit_code = view.exit_code().expect("failed to retrieve exit code");
     let logs = view.logs().expect("failed to retrieve debug logs");
-    println!("Guest exit code: {}", exit_code);
     println!("All guest logs:");
     for (i, line) in logs.iter().enumerate() {
         println!("  [{}] {}", i, line);
@@ -62,31 +68,46 @@ fn main() {
         }
     }
     let proof_result = proof_result.expect("PROOF_RESULT not found in guest logs");
-
     println!("Guest proof result: {}", proof_result);
     println!(
         ">>>>> Logging\n{}<<<<<",
         logs.join("")
     );
-    assert_eq!(exit_code, 0, "Guest exited with error code {}", exit_code);
-    assert_eq!(proof_result, 1, "Proof of reserves failed: reserves do not meet threshold");
-    println!("Proof of reserves succeeded: reserves meet threshold");
+    if exit_code != 0 {
+        eprintln!("Guest exited with error code {} - proof execution failed.", exit_code);
+        std::process::exit(exit_code as i32);
+    }
+    if proof_result == 1 {
+        println!("Proof of reserves succeeded: reserves meet threshold");
+    } else {
+        println!("Proof of reserves FAILED: reserves do NOT meet threshold");
+        println!("Details:");
+        println!("  BTC balances: {:?}, threshold: {}", input.btc_balances, input.threshold_btc);
+        println!("  ETH balances: {:?}, threshold: {}", input.eth_balances, input.threshold_eth);
+        println!("  Total BTC: {}", input.btc_balances.iter().sum::<u64>());
+        println!("  Total ETH: {}", input.eth_balances.iter().sum::<u64>());
+        // Do not panic; exit with code 2 for failed proof
+        std::process::exit(2);
+    }
 
     print!("Verifying proof...");
     let expected_output = 1u8;
-    proof
-        .verify_expected::<(), u8>(
-            &(),
-            0,
-            &expected_output,
-            &elf,
-            &[],
-        )
-        .expect("failed to verify proof");
+    let verify_result = proof.verify_expected::<(), u8>(
+        &(),
+        0,
+        &expected_output,
+        &elf,
+        &[],
+    );
+    match verify_result {
+        Ok(_) => println!("  Succeeded!"),
+        Err(e) => {
+            eprintln!("Proof verification FAILED: {}", e);
+            std::process::exit(3);
+        }
+    }
 
-    println!("  Succeeded!");
-
-    let result = prove_reserves(&input);
+    let result = prove_reserves_multi_asset(&input);
     println!("{{\"proof_result\": {}}}", result);
     if result == 1 {
         println!("Proof of reserves succeeded: reserves meet threshold");
