@@ -1,0 +1,9 @@
+{
+  "alice": [
+    {
+      "user": "alice",
+      "attribute": "KYC",
+      "issuer": "Exchange"
+    }
+  ]
+}

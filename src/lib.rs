@@ -8,6 +8,7 @@ pub struct MultiAssetProofInput {
     pub threshold_eth: u64,
     pub bank_name: String,
     pub reserve_operator: String,
+    pub liabilities: Option<Vec<u64>>,
 }
 
 impl MultiAssetProofInput {
@@ -26,6 +27,7 @@ impl MultiAssetProofInput {
             threshold_eth,
             bank_name,
             reserve_operator,
+            liabilities: None,
         }
     }
 }

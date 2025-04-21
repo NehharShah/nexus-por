@@ -11,5 +11,6 @@ pub struct MultiAssetProofInput {
     pub threshold_eth: u64,
     pub bank_name: String,
     pub reserve_operator: String,
+    pub liabilities: Option<Vec<u64>>,
     // Add more assets as needed
 }
