@@ -4,6 +4,8 @@ A POC on Proof of  Reserves& Solvency system using the [Nexus zkVM SDK](https://
 
 ---
 
+See also: [FUTURE_PRODUCT.md](./FUTURE_PRODUCT.md) for vision, roadmap, and architecture plans.
+
 ## What Does It Prove?
 
 - Computes a zero-knowledge proof that reserves (BTC, ETH) meet or exceed thresholds (**Proof of Reserves**).
