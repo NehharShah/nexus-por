@@ -54,7 +54,7 @@ This product leverages zero-knowledge proofs (using the Nexus zkVM SDK) to enabl
 
 ## 8. Product Architecture
 
-![Product Architecture](assets/architecture(1).png)
+![Product Architecture](assets/architecture (1).png)
 
 ---
 
