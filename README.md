@@ -1,4 +1,4 @@
-# Nexus zkVM Proof of Reserves POC 
+# Nexus zkVM Proof of Solvency POC 
 
 A POC on Proof of Reserves system using the [Nexus zkVM SDK](https://github.com/nexus-xyz/nexus-zkvm). 
 
