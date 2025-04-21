@@ -137,10 +137,6 @@ cargo run -- check-all 100,200 50,50 100 50 250,100 MyBank MyBank alice KYC
 
 ---
 
-For further details, see the code comments and each command's usage output.
-
----
-
 ## License
 
 MIT
