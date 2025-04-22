@@ -100,6 +100,20 @@ cargo run -- check-all 100,200 50,50 100 50 250,100 MyBank MyBank alice KYC
 
 ---
 
+### Punishment, Blacklisting, and Reputation System
+
+This system tracks participants (e.g., banks or operators) for non-solvency or invalid actions. Key features:
+
+- **Strikes**: Each invalid or non-solvent action increments a strike counter for the participant.
+- **Reputation**: Each infraction decreases the participant's reputation score.
+- **Blacklisting**: After a configurable number of strikes, the participant is blacklisted and cannot participate further until reviewed.
+- **Action Logging**: All punitive actions are logged for transparency and possible appeals.
+- **Configurable Policy**: Thresholds and penalties are set in `policy.rs` and can be adjusted as needed.
+
+See `policy.rs` and `main.rs` for implementation details.
+
+---
+
 ### Code Structure
 - `src/main.rs`: CLI entry point and logic for reserves, solvency, and SBTs
 - `src/lib.rs`: Shared logic and struct definitions

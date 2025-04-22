@@ -1,0 +1,5 @@
+max_strikes = 3
+blacklist_threshold = 5
+penalty_fee = 1000
+suspension_duration = 3600
+reputation_penalty = -10

@@ -1,12 +1,14 @@
 mod lib;
+mod moderation;
 use lib::{prove_reserves_multi_asset, MultiAssetProofInput};
+use moderation::*;
 use nexus_sdk::{
     compile::{cargo::CargoPackager, Compile, Compiler},
     stwo::seq::Stwo,
     ByGuestCompilation, Local, Prover, Verifiable, Viewable,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -215,6 +217,152 @@ fn main() {
         let has = sbt_registry.has(&sbt_user, &sbt_attribute);
         println!("User '{}' has SBT '{}': {}", sbt_user, sbt_attribute, has);
         sbt_registry.print_for(&sbt_user);
+        return;
+    }
+    if args.len() >= 2 && args[1] == "print-logs" {
+        let logs = load_logs("action_logs.json").unwrap();
+        print_logs(&logs);
+        return;
+    }
+    if args.len() >= 2 && args[1] == "check-blacklist" {
+        let mut parts = load_participants("participants.json").unwrap();
+        if args.len() < 3 { println!("Usage: check-blacklist <id>"); return; }
+        check_blacklist(&parts, &args[2]);
+        return;
+    }
+    if args.len() >= 2 && args[1] == "submit-appeal" {
+        let mut appeals = load_appeals("appeals.json").unwrap();
+        if args.len() < 4 { println!("Usage: submit-appeal <id> <reason>"); return; }
+        submit_appeal_queue(&mut appeals, &args[2], &args[3]);
+        save_appeals("appeals.json", &appeals).unwrap();
+        return;
+    }
+    if args.len() >= 2 && args[1] == "reset-strikes" {
+        let mut parts = load_participants("participants.json").unwrap();
+        if args.len() < 3 { println!("Usage: reset-strikes <id>"); return; }
+        reset_strikes(&mut parts, &args[2]);
+        save_participants("participants.json", &parts).unwrap();
+        return;
+    }
+    if args.len() >= 2 && args[1] == "list-appeals" {
+        let appeals = load_appeals("appeals.json").unwrap();
+        for (i, app) in appeals.iter().enumerate() {
+            println!("Appeal #{}: {:?}", i, app);
+        }
+        return;
+    }
+    if args.len() >= 2 && args[1] == "review-appeal" {
+        let mut appeals = load_appeals("appeals.json").unwrap();
+        let mut parts = load_participants("participants.json").unwrap();
+        if args.len() < 4 { println!("Usage: review-appeal <idx> <approve:1|0>"); return; }
+        let idx: usize = args[2].parse().unwrap();
+        let approve: bool = args[3] == "1";
+        review_appeal(&mut appeals, &mut parts, idx, approve);
+        save_appeals("appeals.json", &appeals).unwrap();
+        save_participants("participants.json", &parts).unwrap();
+        return;
+    }
+    if args.len() >= 2 && args[1] == "reload-policy" {
+        let policy = load_policy("policy.toml").unwrap();
+        println!("Policy loaded: {:?}", policy);
+        return;
+    }
+    if args.len() >= 2 && args[1] == "prove-reserves" {
+        if args.len() != 7 {
+            eprintln!("Usage: {} prove-reserves <btc_balances> <eth_balances> <btc_threshold> <eth_threshold> <bank_name> <reserve_operator>", args[0]);
+            std::process::exit(1);
+        }
+        let btc_balances: Vec<u64> = args[2].split(',').filter_map(|s| s.parse().ok()).collect();
+        let eth_balances: Vec<u64> = args[3].split(',').filter_map(|s| s.parse().ok()).collect();
+        let threshold_btc: u64 = args[4].parse().expect("Invalid BTC threshold");
+        let threshold_eth: u64 = args[5].parse().expect("Invalid ETH threshold");
+        let bank_name = args[6].clone();
+        let reserve_operator = args[7].clone();
+        let input = MultiAssetProofInput {
+            btc_balances,
+            eth_balances,
+            threshold_btc,
+            threshold_eth,
+            bank_name,
+            reserve_operator,
+            liabilities: None,
+        };
+        println!("Compiling guest program...");
+        let mut prover_compiler = Compiler::<CargoPackager>::new(PACKAGE);
+        let prover: Stwo<Local> =
+            Stwo::compile(&mut prover_compiler).expect("failed to compile guest program");
+        let elf = prover.elf.clone();
+        print!("Proving proof-of-reserves... ");
+        let (view, proof) = prover
+            .prove_with_input::<MultiAssetProofInput, ()>(&input, &())
+            .expect("failed to prove");
+        let exit_code = view.exit_code().expect("failed to retrieve exit code");
+        let logs = view.logs().expect("failed to retrieve debug logs");
+        println!("All guest logs:");
+        for (i, line) in logs.iter().enumerate() {
+            println!("  [{}] {}", i, line);
+        }
+        let mut proof_result: Option<u8> = None;
+        for (i, log) in logs.iter().enumerate() {
+            if let Some(idx) = log.find("PROOF_RESULT:") {
+                let after_colon = log[(idx + "PROOF_RESULT:".len())..].trim();
+                if !after_colon.is_empty() {
+                    if let Ok(val) = after_colon.parse::<u8>() {
+                        proof_result = Some(val);
+                        break;
+                    }
+                } else if let Some(next) = logs.get(i + 1) {
+                    if let Ok(val) = next.trim().parse::<u8>() {
+                        proof_result = Some(val);
+                        break;
+                    }
+                }
+            }
+        }
+        let proof_result = proof_result.expect("PROOF_RESULT not found in guest logs");
+        println!("Guest proof result: {}", proof_result);
+        println!(">>>>> Logging\n{}<<<<<", logs.join(""));
+        if exit_code != 0 {
+            eprintln!(
+                "Guest exited with error code {} - proof execution failed.",
+                exit_code
+            );
+            std::process::exit(exit_code as i32);
+        }
+        if proof_result == 1 {
+            println!("Proof of reserves succeeded: reserves meet threshold");
+        } else {
+            println!("Proof of reserves FAILED: reserves do NOT meet threshold");
+            println!("Details:");
+            println!(
+                "  BTC balances: {:?}, threshold: {}",
+                input.btc_balances, input.threshold_btc
+            );
+            println!(
+                "  ETH balances: {:?}, threshold: {}",
+                input.eth_balances, input.threshold_eth
+            );
+            println!("  Total BTC: {}", input.btc_balances.iter().sum::<u64>());
+            println!("  Total ETH: {}", input.eth_balances.iter().sum::<u64>());
+            std::process::exit(2);
+        }
+        print!("Verifying proof...");
+        let expected_output = 1u8;
+        let verify_result = proof.verify_expected::<(), u8>(&(), 0, &expected_output, &elf, &[]);
+        match verify_result {
+            Ok(_) => println!("  Succeeded!"),
+            Err(e) => {
+                eprintln!("Proof verification FAILED: {}", e);
+                std::process::exit(3);
+            }
+        }
+        let result = prove_reserves_multi_asset(&input);
+        println!("{{\"proof_result\": {}}}", result);
+        if result == 1 {
+            println!("Proof of reserves succeeded: reserves meet threshold");
+        } else {
+            println!("Proof of reserves failed: reserves do not meet threshold");
+        }
         return;
     }
     if args.len() != 7 {
